@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Акмолинская область — интерактивная историческая карта</title>
+<style>
+*{box-sizing:border-box}
+:root{
+ --bg:#eef2ed;--card:#fff;--ink:#17212b;--muted:#68736d;
+ --green:#285336;--green2:#3f8f45;--orange:#d88922;--red:#c63d3d;--blue:#3478a8
+}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}
+header{background:linear-gradient(135deg,#203c29,#396747);color:white;padding:26px 5%;text-align:center}
+header h1{margin:0 0 8px;font-size:clamp(25px,4vw,36px)}
+header p{margin:0;opacity:.9}
+.container{max-width:1400px;margin:auto;padding:18px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;background:var(--card);padding:12px;border-radius:16px;box-shadow:0 3px 12px #0001;margin-bottom:15px}
+button{border:0;border-radius:10px;padding:10px 14px;background:#f0f4f0;cursor:pointer;font-weight:700}
+button.active{background:var(--green);color:#fff}
+.search{flex:1;min-width:220px;border:1px solid #d6ded7;border-radius:10px;padding:10px 12px}
+.layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,.8fr);gap:16px}
+.map-card{background:var(--card);border-radius:18px;box-shadow:0 4px 15px #0002;overflow:hidden}
+.map-title{padding:14px 16px 4px;font-weight:800}
+.map-sub{padding:0 16px 12px;color:var(--muted);font-size:13px}
+.map-window{height:680px;overflow:hidden;position:relative;background:#eee}
+.map-canvas{position:absolute;left:50%;top:50%;width:min(94%,760px);aspect-ratio:1/1;transform:translate(-50%,-50%) scale(1);transform-origin:center;transition:.25s}
+.map-image{width:100%;height:100%;object-fit:contain;display:block}
+.points-layer{position:absolute;inset:0;z-index:4;clip-path:polygon(54% 9%,70% 9%,72% 14%,82% 14%,86% 18%,94% 17%,93% 28%,99% 29%,100% 38%,97% 45%,100% 51%,100% 64%,94% 65%,93% 75%,86% 75%,83% 81%,74% 82%,71% 91%,64% 88%,62% 82%,53% 82%,50% 75%,40% 79%,36% 77%,30% 80%,25% 77%,18% 78%,12% 74%,7% 67%,7% 61%,10% 60%,7% 54%,6% 48%,9% 45%,9% 38%,14% 37%,14% 32%,20% 31%,24% 27%,30% 27%,34% 22%,40% 22%,42% 17%,49% 17%,51% 12%)}
+.point{
+ position:absolute;width:clamp(9px,1.35vw,12px);height:clamp(9px,1.35vw,12px);border-radius:50%;border:1.5px solid white;
+ box-shadow:0 2px 8px #0008;cursor:pointer;transform:translate(-50%,-50%);
+ transition:.15s;z-index:5
+}
+.point:hover{transform:translate(-50%,-50%) scale(1.18)}
+.point.achievement{background:var(--green2)}
+.point.demography{background:var(--orange)}
+.point.ecology{background:var(--red)}
+.point.city{background:var(--blue)}
+.point-label{
+ position:absolute;z-index:4;background:#ffffffea;pointer-events:none;border-radius:7px;padding:4px 7px;
+ font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 1px 5px #0003
+}
+.map-tools{position:absolute;left:12px;top:12px;z-index:20;display:flex;gap:7px;flex-wrap:wrap}
+.map-tools button{background:#fffffff2;box-shadow:0 2px 8px #0003}
+.zoom{position:absolute;right:12px;top:12px;z-index:20;background:#fffffff2;padding:9px 11px;border-radius:10px;box-shadow:0 2px 8px #0003}
+.zoom input{width:120px}
+.legend{position:absolute;bottom:12px;left:12px;z-index:20;background:#fffffff0;padding:10px 12px;border-radius:12px;box-shadow:0 2px 8px #0003;font-size:12px}
+.legend div{margin:4px 0}.sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px}
+.info{background:var(--card);border-radius:18px;padding:21px;box-shadow:0 4px 15px #0002;min-height:680px}
+.badge{display:inline-block;padding:6px 10px;border-radius:20px;background:#e8eee8;font-size:12px;margin-bottom:8px}
+.info h2{margin:4px 0 10px}.info p{line-height:1.55}.facts{padding-left:19px;line-height:1.6}
+.timeline{background:var(--card);margin-top:16px;padding:17px;border-radius:18px;box-shadow:0 3px 12px #0001}
+.year{text-align:center;font-size:27px;font-weight:800}
+.timeline input{width:100%}
+.timeline-scale{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.stat{background:var(--card);padding:15px;border-radius:14px;text-align:center;box-shadow:0 2px 8px #0001}
+.stat b{display:block;font-size:22px;margin-bottom:4px}
+.note{margin-top:16px;background:var(--card);padding:15px;border-radius:14px;color:var(--muted);font-size:12px;line-height:1.5}
+footer{padding:15px 20px 28px;max-width:1400px;margin:auto;color:var(--muted);font-size:12px}
+.dark{--bg:#111812;--card:#1b261f;--ink:#edf4ef;--muted:#aab7ae}
+.dark .controls,.dark button,.dark .info,.dark .timeline,.dark .stat,.dark .note{background:#223027;color:#edf4ef}
+.dark .search{background:#1b261f;color:white;border-color:#405247}
+@media(max-width:900px){
+ .layout{grid-template-columns:1fr}.info{min-height:auto}.map-window{height:540px}.stats{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:560px){.map-window{height:430px}.stats{grid-template-columns:1fr}.container{padding:10px}}
+</style>
+</head>
+<body>
+
+<header>
+ <h1>Освоение целины в Акмолинском регионе</h1>
+ <p>Интерактивная схема Акмолинской области с точками событий и объектов</p>
+</header>
+
+<div class="container">
+ <div class="controls">
+  <button class="active" onclick="filterPoints('all',this)">Все</button>
+  <button onclick="filterPoints('achievement',this)">🟢 Хозяйство</button>
+  <button onclick="filterPoints('demography',this)">🟠 Демография</button>
+  <button onclick="filterPoints('ecology',this)">🔴 Экология</button>
+  <input id="search" class="search" placeholder="Поиск: Акмолинск, совхозы, эрозия..." oninput="searchPoints(this.value)">
+  <button onclick="toggleDark()">Тема</button>
+ </div>
+
+ <div class="layout">
+  <section class="map-card">
+   <div class="map-title">Примерный контур и размеры Акмолинской области</div>
+   <div class="map-sub">За основу взята опубликованная карта области; точки поверх изображения являются исторической схемой, а не точной геопривязкой.</div>
+
+   <div class="map-window" id="mapWindow">
+    <div class="map-tools">
+     <button onclick="resetZoom()">Сброс</button>
+     <button onclick="showAll()">Показать все точки</button>
+    </div>
+    <div class="zoom">
+     Масштаб <input id="zoom" type="range" min="0.8" max="1.8" step="0.05" value="1" oninput="setZoom(this.value)">
+    </div>
+
+    <div class="map-canvas" id="canvas">
+     <img class="map-image"
+       src="https://www.gov.kz/uploads/2020/1/29/75671f55f0a202f369b01e4114c12150_original.205675.jpg"
+       alt="Карта Акмолинской области">
+
+     <!-- Точки ограничены контуром области; положение внутри карты условное. -->
+     <div class="points-layer">
+     <div class="point city" style="left:69%;top:61%" data-id="akmolinsk" onclick="showInfo('akmolinsk')" title="Акмолинск / Целиноград"></div>
+     <div class="point achievement" style="left:53%;top:50%" data-id="sovkhozy" onclick="showInfo('sovkhozy')" title="Новые совхозы"></div>
+     <div class="point achievement" style="left:78%;top:52%" data-id="stepnogorsk" onclick="showInfo('stepnogorsk')" title="Степногорск"></div>
+     <div class="point achievement" style="left:40%;top:60%" data-id="atbasar" onclick="showInfo('atbasar')" title="Атбасар"></div>
+     <div class="point demography" style="left:48%;top:35%" data-id="migration" onclick="showInfo('migration')" title="Переселение"></div>
+     <div class="point demography" style="left:61%;top:67%" data-id="population" onclick="showInfo('population')" title="Демографические изменения"></div>
+     <div class="point ecology" style="left:42%;top:75%" data-id="erosion" onclick="showInfo('erosion')" title="Ветровая эрозия"></div>
+     <div class="point ecology" style="left:76%;top:75%" data-id="dust" onclick="showInfo('dust')" title="Пыльные бури"></div>
+     <div class="point achievement" style="left:58%;top:42%" data-id="sovkhoz50" onclick="showInfo('sovkhoz50')" title="Вторая волна совхозов"></div>
+     <div class="point achievement" style="left:29%;top:45%" data-id="machinery" onclick="showInfo('machinery')" title="Техника и механизаторы"></div>
+     <div class="point achievement" style="left:34%;top:68%" data-id="roads" onclick="showInfo('roads')" title="Дороги и инфраструктура"></div>
+     <div class="point achievement" style="left:70%;top:35%" data-id="industry" onclick="showInfo('industry')" title="Промышленность"></div>
+     <div class="point achievement" style="left:51%;top:63%" data-id="agriculture" onclick="showInfo('agriculture')" title="Зерновое хозяйство"></div>
+     <div class="point achievement" style="left:45%;top:57%" data-id="harvest" onclick="showInfo('harvest')" title="Урожайная кампания"></div>
+
+     <div class="point demography" style="left:55%;top:30%" data-id="firsttrain" onclick="showInfo('firsttrain')" title="Первый поезд с целинниками"></div>
+     <div class="point demography" style="left:35%;top:38%" data-id="migration100" onclick="showInfo('migration100')" title="100 тысяч прибывших"></div>
+     <div class="point demography" style="left:72%;top:62%" data-id="national" onclick="showInfo('national')" title="Национально-демографические изменения"></div>
+     <div class="point demography" style="left:53%;top:72%" data-id="population" onclick="showInfo('population')" title="Новые посёлки"></div>
+     <div class="point demography" style="left:82%;top:58%" data-id="education" onclick="showInfo('education')" title="Образование и язык"></div>
+
+     <div class="point ecology" style="left:34%;top:78%" data-id="soil" onclick="showInfo('soil')" title="Почвозащитные технологии"></div>
+     <div class="point ecology" style="left:54%;top:80%" data-id="scale" onclick="showInfo('scale')" title="Масштаб распашки"></div>
+     <div class="point ecology" style="left:63%;top:76%" data-id="consequence" onclick="showInfo('consequence')" title="Противоречивые последствия"></div>
+
+     <div class="point city" style="left:76%;top:68%" data-id="1960" onclick="showInfo('1960')" title="Целинный край"></div>
+     <div class="point city" style="left:67%;top:50%" data-id="1971" onclick="showInfo('1971')" title="Упразднение Целинного края"></div>
+     <div class="point achievement" style="left:45%;top:34%" data-id="esil" onclick="showInfo('esil')" title="Есиль — ворота целины"></div>
+
+     </div>
+
+     <div class="point-label" style="left:61%;top:55%">Акмолинск / Целиноград</div>
+     <div class="point-label" style="left:72%;top:45%">Степногорск</div>
+     <div class="point-label" style="left:32%;top:56%">Атбасар</div>
+    </div>
+
+    <div class="legend">
+      <div><span class="sw" style="background:#3478a8"></span>город / исторический центр</div>
+      <div><span class="sw" style="background:#3f8f45"></span>хозяйство</div>
+      <div><span class="sw" style="background:#d88922"></span>демография</div>
+      <div><span class="sw" style="background:#c63d3d"></span>экология</div>
+    </div>
+   </div>
+  </section>
+
+  <aside class="info" id="info">
+   <span class="badge">Интерактивная схема</span>
+   <h2>Как это работает</h2>
+   <p>Нажимайте на цветные точки внутри примерного контура области. Справа появится карточка с информацией.</p>
+   <ul class="facts">
+    <li>Карта не использует онлайн-карты и не превращает всё в унылый GPS-интерфейс.</li>
+    <li>Изображение показывает форму, размеры и внутреннее административное деление области.</li>
+    <li>Исторические точки специально сделаны крупными, чтобы по ним было удобно нажимать.</li>
+    <li>Фильтры позволяют оставить только хозяйственные, демографические или экологические объекты.</li>
+   </ul>
+   <p><b>Основа изображения:</b> официальная карта Акмолинской области, опубликованная на gov.kz. citeturn0image0</p>
+  </aside>
+ </div>
+
+ <div class="timeline">
+  <div class="year" id="year">1954</div>
+  <input type="range" min="1954" max="1971" value="1954" oninput="changeYear(this.value)">
+  <div class="timeline-scale"><span>1954</span><span>1961</span><span>1971</span></div>
+  <p id="yearText" style="text-align:center;color:var(--muted)">Начало массового освоения целины.</p>
+ </div>
+
+ <div class="stats">
+  <div class="stat"><b>27</b>новых совхозов в 1954 году</div>
+  <div class="stat"><b>1,622 млн га</b>распахано в области в первый год</div>
+  <div class="stat"><b>1961</b>Акмолинск переименован в Целиноград</div>
+  <div class="stat"><b>100 тыс.</b>прибывших в область за первые два года</div>
+ </div>
+
+ <div class="note">
+  <b>Историческая оговорка.</b> Современная Акмолинская область и советский Целинный край не являются одной и той же административной единицей.
+  Поэтому карта используется как визуальная основа, а точки показывают исторические явления и места приблизительно.
+  Числа в карточках основаны на материалах Национального архива РК и e-history.kz: в 1954 году в области было создано 27 новых совхозов,
+  распахано 1,622 млн га, а за первые два года прибыло около 100 тыс. человек.
+ </div>
+</div>
+
+<footer>
+ Источник изображения: gov.kz. Дополнительные исторические сведения: e-history.kz и справочные исторические материалы.
+</footer>
+
+<script>
+const data={
+ akmolinsk:{
+  title:'Акмолинск → Целиноград',type:'city',year:1961,
+  text:'Акмолинск был одним из главных центров освоения целины. В 1961 году город переименовали в Целиноград. В период Целинного края он стал административным центром огромного региона.',
+  facts:['Город существовал с 1832 года.','В 1961 году получил название Целиноград.','В 1992 году историческое название Акмола было восстановлено.']
+ },
+ sovkhozy:{
+  title:'27 новых совхозов',type:'achievement',year:1954,
+  text:'Весной 1954 года только в Акмолинской области было основано 27 новых совхозов. В конце 1954 — начале 1955 года началось формирование ещё 50 совхозов.',
+  facts:['1954: 27 новых совхозов.','1954: засеяно 127 тыс. га при плане 115 тыс. га.','Первый год: распахано 1,622 млн га целинных и залежных земель.']
+ },
+ sovkhoz50:{
+  title:'Вторая волна создания совхозов',type:'achievement',year:1955,
+  text:'После первого года кампании хозяйственная сеть продолжила расширяться. В конце 1954 — начале 1955 года в области формировались ещё десятки новых совхозов.',
+  facts:['Создание хозяйств шло очень быстрыми темпами.','Совхозы становились базовыми единицами зернового производства.']
+ },
+ stepnogorsk:{
+  title:'Степногорск',type:'achievement',year:1958,
+  text:'Степногорск стал одним из заметных промышленных центров северной части региона. Его развитие связано уже не только с сельским хозяйством, но и с промышленным освоением территории.',
+  facts:['Промышленный центр северной части области.','Развивался в период интенсивного послевоенного освоения региона.']
+ },
+ atbasar:{
+  title:'Атбасар',type:'achievement',year:1954,
+  text:'Атбасар — исторический населённый пункт региона. В период целины его положение было связано с транспортом, сельским хозяйством и обслуживанием окружающих степных территорий.',
+  facts:['Старый региональный населённый пункт.','Связан с транспортными и сельскохозяйственными процессами.']
+ },
+ esil:{
+  title:'Есиль — «ворота целины»',type:'achievement',year:1954,
+  text:'Есильский район называют «воротами целины». С началом кампании станция Есиль превратилась в важный железнодорожный узел, через который прибывали эшелоны с добровольцами.',
+  facts:['В марте 1954 года сюда прибывали первые группы молодёжи.','Отсюда люди разъезжались к местам освоения земель.','Железная дорога стала важнейшей частью снабжения.']
+ },
+ roads:{
+  title:'Дороги и новая инфраструктура',type:'achievement',year:1955,
+  text:'Освоение целины требовало не только тракторов, но и дорог, жилья, складов, мастерских, железнодорожных объектов и новых посёлков.',
+  facts:['Быстро строились новые населённые пункты.','Расширялась коммуникационная сеть.','В регион поступали машины, оборудование и техника.']
+ },
+ machinery:{
+  title:'Техника и механизаторы',type:'achievement',year:1954,
+  text:'Целинная кампания сопровождалась массовой переброской сельскохозяйственной техники и специалистов.',
+  facts:['В 1954–1955 годах в совхозы было направлено около 4,5 тыс. специалистов.','К 1959 году в совхозах трудилось около 15 тыс. специалистов с высшим и средним образованием.']
+ },
+ migration:{
+  title:'Первые массовые прибывающие',type:'demography',year:1954,
+  text:'Только в первой половине 1954 года в Акмолинскую область для освоения целины прибыло свыше 20 тысяч человек.',
+  facts:['В числе прибывших были молодые комсомольцы, специалисты и механизаторы.','Поток людей резко увеличил население целинных районов.']
+ },
+ migration100:{
+  title:'100 тысяч прибывших за первые два года',type:'demography',year:1955,
+  text:'По данным Национального архива, за первые два года освоения целины в Акмолинскую область прибыли около 100 тысяч человек.',
+  facts:['1954–1955: около 100 тыс. прибывших.','Миграция сопровождалась созданием новых поселений.']
+ },
+ national:{
+  title:'Изменение национально-демографической структуры',type:'demography',year:1959,
+  text:'Массовая миграция изменила демографическую структуру северных областей Казахстана. В Акмолинске и области в 1950-е годы проживали представители более 60 национальностей и народностей.',
+  facts:['В регионе сформировалась очень разнообразная по происхождению среда.','Изменения затрагивали язык, образование и культурную жизнь.']
+ },
+ population:{
+  title:'Рост новых посёлков',type:'demography',year:1957,
+  text:'Вокруг новых совхозов и производственных объектов появлялись посёлки, жильё, школы, магазины и объекты социальной инфраструктуры.',
+  facts:['Новые поселения возникали рядом с хозяйствами.','Строительство шло одновременно с расширением сельскохозяйственного производства.']
+ },
+ education:{
+  title:'Образование и культурные изменения',type:'demography',year:1960,
+  text:'Демографические изменения сопровождались изменениями в языковой и образовательной среде. В северных областях усилилась роль русского языка в общественной жизни.',
+  facts:['Изменения особенно заметны в городах и целинных районах.','Вопрос образования стал частью более широких демографических процессов.']
+ },
+ erosion:{
+  title:'Ветровая эрозия почв',type:'ecology',year:1960,
+  text:'Массовая распашка степей нарушала естественный почвенный покров. В 1960-х годах проблема эрозии стала одной из центральных экологических тем целинного земледелия.',
+  facts:['Почва оставалась без естественного растительного покрова.','Сильные ветры выдували мелкие частицы и гумус.','Учёные разрабатывали почвозащитные технологии.']
+ },
+ dust:{
+  title:'Пыльные бури',type:'ecology',year:1956,
+  text:'Пыльные бури стали одним из наиболее заметных последствий нарушения почвенного покрова на больших площадях распаханной степи.',
+  facts:['Проблема усилилась в конце 1950-х — начале 1960-х годов.','Эрозия снижала устойчивость сельскохозяйственных земель.']
+ },
+ soil:{
+  title:'Почвозащитные технологии',type:'ecology',year:1961,
+  text:'В начале 1960-х годов специалисты всё активнее выступали за методы обработки земли, которые позволяли сохранять растительные остатки и уменьшать ветровую эрозию.',
+  facts:['Проблема стала предметом научных исследований.','В 1960–1970-е годы проводилась работа по борьбе с эрозией.']
+ },
+ scale:{
+  title:'Масштаб распашки',type:'ecology',year:1958,
+  text:'Освоение целины происходило в огромных масштабах. Для Казахстана в целом к началу 1960-х годов были распаханы десятки миллионов гектаров.',
+  facts:['1954–1960: около 25,5 млн га распахано в Казахстане по одному из исторических источников.','Большие масштабы повышали экологические риски в степной зоне.']
+ },
+ agriculture:{
+  title:'Зерновое хозяйство',type:'achievement',year:1956,
+  text:'В середине 1950-х годов зерновое производство резко выросло. 1956 год стал одним из самых урожайных и символически важным в истории кампании.',
+  facts:['1956 год запомнился рекордным урожаем зерна в Казахстане.','Зерновое производство стало центральной задачей целинных хозяйств.']
+ },
+ 1960:{
+  title:'Акмолинск и Целинный край',type:'city',year:1960,
+  text:'В 1960 году Акмолинск стал центром Целинного края, объединявшего несколько северных областей Казахстана.',
+  facts:['Целинный край был крупной административной единицей.','Акмолинск стал важнейшим управленческим центром целинной кампании.']
+ },
+ 1971:{
+  title:'Конец Целинного края',type:'city',year:1971,
+  text:'В 1971 году Целинный край был упразднён. Административная структура северных областей Казахстана вновь изменилась.',
+  facts:['Целинный край существовал в 1960–1971 годах.','После его упразднения прежняя схема управления была изменена.']
+ },
+ firsttrain:{
+  title:'Первый поезд с целинниками',type:'demography',year:1954,
+  text:'2 марта 1954 года на станции Акмолинск торжественно встретили первый поезд с целинниками из Алма-Аты. В тот же день прибывшие отправились к местам будущих совхозов.',
+  facts:['Событие зафиксировано Национальным архивом Республики Казахстан.','Поезд стал символом начала организованного притока людей в регион.']
+ },
+ industry:{
+  title:'Промышленность и ремонтная база',type:'achievement',year:1955,
+  text:'Для обслуживания новой техники требовались ремонтные предприятия, мастерские и специалисты. Целинная кампания стимулировала развитие производственной инфраструктуры.',
+  facts:['На освоение целины направлялись специалисты промышленных предприятий.','Развивалась база ремонта сельскохозяйственной техники.']
+ },
+ harvest:{
+  title:'Урожайная кампания',type:'achievement',year:1956,
+  text:'После первых лет распашки целинные хозяйства стремились быстро увеличивать производство зерна. Уборочная страда стала важнейшим ежегодным событием региона.',
+  facts:['В хозяйствах внедрялись новые методы уборки.','Передовики производства становились героями официальной пропаганды.']
+ },
+ consequence:{
+  title:'Противоречивые последствия',type:'ecology',year:1960,
+  text:'Целина дала быстрый рост зернового производства и одновременно создала долгосрочные проблемы: эрозию, истощение почв и зависимость от погодных условий.',
+  facts:['Экономический эффект сочетался с экологическими издержками.','Засушливость степной зоны повышала риски неурожаев.']
+ }
+};
+
+function typeLabel(t){
+ if(t==='achievement') return 'Хозяйство и инфраструктура';
+ if(t==='demography') return 'Демография и общество';
+ if(t==='ecology') return 'Экология';
+ return 'Город и административная история';
+}
+function showInfo(id){
+ const d=data[id];
+ const facts=(d.facts||[]).map(x=>'<li>'+x+'</li>').join('');
+ document.getElementById('info').innerHTML=
+  '<span class="badge">'+typeLabel(d.type)+'</span>'+
+  '<h2>'+d.title+'</h2>'+
+  '<p>'+d.text+'</p>'+
+  '<p><b>Связанный период:</b> '+d.year+' г.</p>'+
+  '<h3>Что важно знать</h3>'+
+  '<ul class="facts">'+facts+'</ul>'+
+  '<button onclick="highlight(\''+id+'\')">Выделить точку</button>';
+}
+function highlight(id){
+ document.querySelectorAll('.point').forEach(p=>p.style.transform='translate(-50%,-50%)');
+ const p=document.querySelector('[data-id="'+id+'"]');
+ if(p){p.style.transform='translate(-50%,-50%) scale(1.65)';p.style.zIndex=20}
+}
+function filterPoints(type,btn){
+ document.querySelectorAll('.controls button').forEach(b=>b.classList.remove('active'));
+ btn.classList.add('active');
+ document.querySelectorAll('.point').forEach(p=>{
+  p.style.opacity=(type==='all'||p.classList.contains(type)||p.classList.contains('city'))?'1':'.15';
+ });
+}
+function searchPoints(q){
+ q=q.toLowerCase().trim();
+ Object.keys(data).forEach(id=>{
+  const p=document.querySelector('[data-id="'+id+'"]');
+  const d=data[id];
+  const hit=!q||(d.title+' '+d.text).toLowerCase().includes(q);
+  if(p)p.style.opacity=hit?'1':'.12';
+ });
+}
+function changeYear(y){
+ y=Number(y);document.getElementById('year').textContent=y;
+ let text='Начало массового освоения целины.';
+ if(y>=1961)text='1961: Акмолинск переименован в Целиноград.';
+ if(y>=1962)text='1962: экологические последствия распашки становятся особенно заметными.';
+ if(y>=1971)text='1971: Целинный край упразднён.';
+ document.getElementById('yearText').textContent=text;
+ document.querySelectorAll('.point').forEach(p=>{
+  const id=p.dataset.id, show=data[id].year<=y;
+  p.style.opacity=show?'1':'.12';
+ });
+}
+function setZoom(v){document.getElementById('canvas').style.transform='translate(-50%,-50%) scale('+v+')'}
+function resetZoom(){document.getElementById('zoom').value=1;setZoom(1)}
+function showAll(){document.getElementById('search').value='';document.querySelectorAll('.point').forEach(p=>p.style.opacity='1')}
+function toggleDark(){document.body.classList.toggle('dark')}
+</script>
+</body>
+</html>
